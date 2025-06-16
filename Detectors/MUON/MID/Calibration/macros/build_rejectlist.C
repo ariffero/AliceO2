@@ -334,6 +334,10 @@ RejectListStruct load_from_json(const o2::ccdb::CcdbApi& ccdbApi, const char* fi
   int64_t startTSms = 0;
   int64_t endTSms = 0;
 
+  //run numbers from the json
+  int startRun = doc["startRun"].GetInt();
+  int endRun = doc["endRun"].GetInt();
+
   // check if there are non-zero timestamps in the json
   bool hasStartTT = doc.HasMember("startTT") && doc["startTT"].IsInt64() && doc["startTT"].GetInt64() != 0;
   bool hasEndTT = doc.HasMember("endTT") && doc["endTT"].IsInt64() && doc["endTT"].GetInt64() != 0;
@@ -342,8 +346,6 @@ RejectListStruct load_from_json(const o2::ccdb::CcdbApi& ccdbApi, const char* fi
     endTSms = doc["endTT"].GetInt64();
 
     // sanity check against the run boundaries
-    int startRun = doc["startRun"].GetInt();
-    int endRun = doc["endRun"].GetInt();
     auto runStart = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, startRun).first;
     auto runEnd = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, endRun).second;
     if (startTSms < runStart || endTSms > runEnd) {
@@ -353,8 +355,6 @@ RejectListStruct load_from_json(const o2::ccdb::CcdbApi& ccdbApi, const char* fi
     }
   } else {
     // use run start/end if there are no timestamps in the json
-    int startRun = doc["startRun"].GetInt();
-    int endRun = doc["endRun"].GetInt();
     startTSms = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, startRun).first;
     endTSms = o2::ccdb::BasicCCDBManager::getRunDuration(ccdbApi, endRun).second;
   }
