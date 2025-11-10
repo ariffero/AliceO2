@@ -446,8 +446,15 @@ std::vector<RejectListStruct> merge_rejectlists(const RejectListStruct& manualRL
 /// @param qcdbUrl QCDB URL
 /// @param ccdbUrl CCDB URL
 /// @param outCCDBUrl URL of the CCDB where the reject lists will be uploaded
-void build_rejectlist(long start, long end, const char* qcdbUrl = "http://ali-qcdb-gpn.cern.ch:8083", const char* ccdbUrl = "http://alice-ccdb.cern.ch", const char* outCCDBUrl = "http://localhost:8080", const char* json_rejectlist = "")
+void build_rejectlist(long start, long end, bool outsideCERN = false, bool merge = false, const char* json_rejectlist = "")
 {
+  //connections
+  const char* qcdbUrl = "http://ali-qcdb-gpn.cern.ch:8083";
+  if(outsideCERN) qcdbUrl = "localhost:8083";
+  const char* ccdbUrl = "http://alice-ccdb.cern.ch";
+  const char* outCCDBUrl = "http://localhost:8080";
+
+
   // Query the MID QC quality objects
   o2::ccdb::CcdbApi qcdbApi;
   qcdbApi.init(qcdbUrl);
@@ -458,13 +465,18 @@ void build_rejectlist(long start, long end, const char* qcdbUrl = "http://ali-qc
   for (auto md : objectsMD) {
     auto rl = build_rejectlist(md, qcdbApi, ccdbApi);
     if (rl.start != rl.end) {
-      rls.emplace_back(rl);
+    if(std::string(json_rejectlist).empty() || (!std::string(json_rejectlist).empty() && merge))  rls.emplace_back(rl);
     }
   }
 
-  if (!std::string(json_rejectlist).empty()) {
+  if (!std::string(json_rejectlist).empty() && merge) {
     auto rlManual = load_from_json(ccdbApi, json_rejectlist);
     rls = merge_rejectlists(rlManual, rls);
+  }
+
+  else if(!std::string(json_rejectlist).empty() && !merge){
+    auto rlManual = load_from_json(ccdbApi, json_rejectlist);
+    rls.emplace_back(rlManual);
   }
 
   o2::ccdb::CcdbApi outCCDBApi;
@@ -472,9 +484,15 @@ void build_rejectlist(long start, long end, const char* qcdbUrl = "http://ali-qc
   std::map<std::string, std::string> metadata;
   for (auto& rl : rls) {
     // Ask if you want to upload the object to the CCDB
+    if(!std::string(json_rejectlist).empty() && !merge) std::cout << "\nMerged disabled! Only the manual reject list is considered." << std::endl;
     std::cout << "Upload reject list with validity: " << rl.start << " - " << rl.end << " to " << outCCDBApi.getURL() << "? [y/n]" << std::endl;
     std::string answer;
-    std::cin >> answer;
+    if (! (!std::string(json_rejectlist).empty() && !merge)){
+      std::cin >> answer;
+    }else{
+      answer = "y";
+    }
+    
     if (answer == "y") {
       std::cout << "Storing RejectList valid from " << rl.start << " to " << rl.end << std::endl;
       outCCDBApi.storeAsTFileAny(&rl.rejectList, "MID/Calib/RejectList", metadata, rl.start, rl.end);
